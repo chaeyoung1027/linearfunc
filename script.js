@@ -94,20 +94,15 @@ function testModel(model, inputData, normalizationData) {
     // We un-normalize the data by doing the inverse of the min-max scaling
     // that we did earlier.
     const [xs, preds] = tf.tidy(() => {
+        let xs = [];
+        for(let x=0; x<=30; x+=0.5)
+            xs.push(x);
 
-        const xs = tf.linspace(0, 1, 100);
-        const preds = model.predict(xs.reshape([100, 1]));
-
-        const unNormXs = xs
-            .mul(inputMax.sub(inputMin))
-            .add(inputMin);
-
-        const unNormPreds = preds
-            .mul(labelMax.sub(labelMin))
-            .add(labelMin);
+        const xsTensor = tf.tensor2d(xs, [xs.length, 1]);
+        const preds = model.predict(xsTensor);
 
         // Un-normalize the data
-        return [unNormXs.dataSync(), unNormPreds.dataSync()];
+        return [xsTensor.dataSync(), preds.dataSync()];
     });
 
     const predictedPoints = Array.from(xs).map((val, i) => {
