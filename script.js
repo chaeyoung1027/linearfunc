@@ -22,7 +22,7 @@ function createModel() {
     // Add a single input layer
     model.add(tf.layers.dense({inputShape: [1], units: 1, useBias: true}));
 
-    //hidden layer 추가(딥러닝)
+    // hidden layer 추가(딥러닝)
     model.add(tf.layers.dense({units: 1, useBias: true}));
 
     // Add an output layer
@@ -54,7 +54,21 @@ function convertToTensor(data) {
 
         return {
             inputs: inputTensor,
-            labels: labelTensor,
+            labels: labelTensor
+        }
+
+        //Step 3. Normalize the data to the range 0 - 1 using min-max scaling
+        const inputMax = inputTensor.max();
+        const inputMin = inputTensor.min();
+        const labelMax = labelTensor.max();
+        const labelMin = labelTensor.min();
+
+        const normalizedInputs = inputTensor.sub(inputMin).div(inputMax.sub(inputMin));
+        const normalizedLabels = labelTensor.sub(labelMin).div(labelMax.sub(labelMin));
+
+        return {
+            inputs: normalizedInputs,
+            labels: normalizedLabels,
             // Return the min/max bounds so we can use them later.
             inputMax,
             inputMin,
@@ -64,7 +78,7 @@ function convertToTensor(data) {
     });
 }
 
-async function trainModel(model, inputs, labels) {
+async function trainModel(model, inputs, labels, epochs) {
     // Prepare the model for training.
     model.compile({
         optimizer: tf.train.adam(),
@@ -73,7 +87,6 @@ async function trainModel(model, inputs, labels) {
     });
 
     const batchSize = 32;
-    const epochs = 200;
 
     return await model.fit(inputs, labels, {
         batchSize,
@@ -81,13 +94,13 @@ async function trainModel(model, inputs, labels) {
         shuffle: true,
         callbacks: tfvis.show.fitCallbacks(
             { name: 'Training Performance' },
-            ['loss', 'mse'],
+            ['loss', 'Mmse'],
             { height: 200, callbacks: ['onEpochEnd'] }
         )
     });
 }
 
-function testModel(model, inputData, normalizationData) {
+function testModel(model, inputData, normalizationData, epochs) {
     const {inputMax, inputMin, labelMin, labelMax} = normalizationData;
 
     // Generate predictions for a uniform range of numbers between 0 and 1;
@@ -114,11 +127,11 @@ function testModel(model, inputData, normalizationData) {
     }));
 
     tfvis.render.scatterplot(
-        {name: '예측 데이터 확인하기'},
-        {values: [originalPoints, predictedPoints], series: ['y = 2x + 1', '예측']},
+        {name: '예측 데이터 확인하기 epochs : ' + epochs},
+        {values: [originalPoints, predictedPoints], series: ['y=2x+1', '예측']},
         {
-            xLabel: 'Horsepower',
-            yLabel: 'MPG',
+            xLabel: 'x',
+            yLabel: 'y',
             height: 300
         }
     );
@@ -133,12 +146,12 @@ async function run() {
     }));
 
     tfvis.render.scatterplot(
-        {name: 'y = 2x + 1 학습'},
+        {name: 'y=2x+1'},
         {values},
         {
             xLabel: 'x',
             yLabel: 'y',
-            height: 300
+            height: 500
         }
     );
 
@@ -151,13 +164,18 @@ async function run() {
     const tensorData = convertToTensor(data);
     const {inputs, labels} = tensorData;
 
-// Train the model
-    await trainModel(model, inputs, labels);
+    // Train the model
+    await trainModel(model, inputs, labels, 200);
+    testModel(model, data, tensorData, 200);
     console.log('Done Training');
 
     // Make some predictions using the model and compare them to the
     // original data
-    testModel(model, data, tensorData);
+    await trainModel(model, inputs, labels, 500);
+    testModel(model, data, tensorData, 500);
+
+    await trainModel(model, inputs, labels, 1000);
+    testModel(model, data, tensorData, 1000);
 }
 
 document.addEventListener('DOMContentLoaded', run);
